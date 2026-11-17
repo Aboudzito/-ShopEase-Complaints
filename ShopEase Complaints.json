@@ -1,0 +1,479 @@
+{
+  "name": "ShopEase Complaints",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "ShopEase Customer Support",
+        "formDescription": "A form that'll receive complaints",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full name"
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email"
+            },
+            {
+              "fieldLabel": "Order ID",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "Complaints",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2c69a5ad-e2c5-4b17-a13e-77677612d39f",
+      "name": "On form submission",
+      "webhookId": "0ff3723c-4071-4bfd-b478-b6a8f3468978"
+    },
+    {
+      "parameters": {
+        "url": "=https://dummyjson.com/carts/{{ $json['Order ID'] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "87242996-ec36-45e3-b6b9-2cbd6e1698bf",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3c1dc1f6-91f1-40ae-901b-edc411dc7a33",
+              "name": "Full name",
+              "value": "={{ $('On form submission').item.json['Full name'] }}",
+              "type": "string"
+            },
+            {
+              "id": "352520e3-dbee-4d98-b46f-5f6b23c40c27",
+              "name": "products[0].total",
+              "value": "={{ $json.total }}",
+              "type": "number"
+            },
+            {
+              "id": "84608163-b8c5-4c2f-be9d-2f86609df7c7",
+              "name": "products[0].quantity",
+              "value": "={{ $json.totalQuantity }}",
+              "type": "number"
+            },
+            {
+              "id": "1f9a1671-5166-4d03-a1b4-847bb8d5dde8",
+              "name": "products[0].title",
+              "value": "={{ $json.products[0].title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3fa1d312-0349-4cf8-8679-2fb9cfaf859f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a customer support triage assistant. Classify the customer complaint and return ONLY valid JSON with no markdown, no backticks, and no extra text. Use lowercase only for category and urgency.\n\n\nRules:\n- \"category\":\n  - \"refund\": customer wants money back or wants to return an item\n  - \"delivery\": order is late, missing, or the wrong item arrived\n  - \"other\": anything else (questions, feedback, thanks)\n- \"urgency\":\n  - \"high\": customer is angry, item is broken/damaged, or they want action today\n  - \"low\": everything else\n- \"summary\": a single concise sentence summarizing the complaint.\n\nOutput format:\n{\"category\": \"...\", \"urgency\": \"...\", \"summary\": \"...\"}",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "HumanMessagePromptTemplate",
+              "message": "={{ $('On form submission').item.json.Complaints }}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        576,
+        0
+      ],
+      "id": "4734aa93-d3e3-478c-acbc-c74c68b355da",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        576,
+        160
+      ],
+      "id": "605f4922-761a-48fd-a885-905a5a02c478",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "dcTAkxFrTqEmh57G",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the AI text output (adjust .text or .message.content depending on your AI node's output)\nconst raw = $input.first().json.text || $input.first().json.output || $input.first().json.message?.content || \"\";\n\n// Remove markdown code fences if present\nconst cleaned = raw.replace(/```json/gi, \"\").replace(/```/g, \"\").trim();\n\n// Parse into an object\nconst parsed = JSON.parse(cleaned);\n\nreturn [\n  {\n    json: {\n      category: parsed.category.toLowerCase().trim(),\n      urgency: parsed.urgency.toLowerCase().trim(),\n      summary: parsed.summary\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        0
+      ],
+      "id": "e8dea502-e8bb-43b7-9e75-21a7f03dd6a8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1BRvR9CTG1xm78yXSSAfy8hapWIzyf2YpZpsqIgb6fqE/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1BRvR9CTG1xm78yXSSAfy8hapWIzyf2YpZpsqIgb6fqE/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Order ID",
+              "displayName": "Order ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Order Total",
+              "displayName": "Order Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Items",
+              "displayName": "Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "First Product",
+              "displayName": "First Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Urgency",
+              "displayName": "Urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1136,
+        0
+      ],
+      "id": "52559fd6-29fd-414a-9b2d-b92cb59a01a4",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PjPtE2oQoqzHsl0r",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ac8eb603-0ff1-47ec-aa26-a2db7fcd6d7d",
+              "leftValue": "={{ $json.urgency }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "389028ab-1055-4e24-92d2-8942922f67f6",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "8561594730",
+        "text": "=🚨 Urgent Complaint Alert!\nCustomer: {{ $('Edit Fields').item.json['Full name'] }}\nOrder Total: ${{ $('Edit Fields').item.json.products[0].total }}\nSummary: {{ $('Code in JavaScript').item.json.summary }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1552,
+        -96
+      ],
+      "id": "098cdfab-c8b8-4f3d-96a2-68aa9d7194a8",
+      "name": "Send a text message",
+      "webhookId": "13dce817-3932-43bf-8465-40d5ea7de5e2",
+      "credentials": {
+        "telegramApi": {
+          "id": "VddcH7rXEEydtN1P",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "cb07d6a5-46c7-4e25-8f93-4cf006d81955",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a732b153331e26b8e20eaa0793a37bed489456346f9081b22285ddfec3b47743"
+  },
+  "id": "HJUYCG0pS32P8W02",
+  "tags": []
+}
